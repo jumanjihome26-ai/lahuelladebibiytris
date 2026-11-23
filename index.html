@@ -63,13 +63,21 @@ table{width:100%;border-collapse:collapse}th{font-weight:600;color:#7b2a1c;text-
 #syncEst{font-size:13px;font-weight:600;color:var(--pa)}
 .btnlink{display:inline-block;background:var(--gr2);color:var(--pa);text-decoration:none;font-weight:600;border-radius:7px;padding:6px 14px;border:1px solid #3b0f14}.btnlink:hover{background:var(--na);color:var(--gr)}
 .hoja .err{color:#a33;font-weight:600}.hoja ol{padding-left:22px;line-height:1.5}.hoja .ok{color:#2f6b2f;font-weight:700}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid var(--oc);margin-bottom:.8cqw}.hd h3{border:0;margin:0;padding-bottom:.2cqw}.hd button{margin-bottom:.3cqw}
+.mini{position:absolute;left:50%;bottom:.5cqw;transform:translateX(-50%);font-size:1.05cqw;padding:.2cqw .7cqw;white-space:nowrap}.foto{position:relative}
+.pw{white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#pR{gap:.8cqw}#pR .ult{margin-top:.5cqw;padding:.5cqw .9cqw;min-height:3.4cqw}#pR label{margin-bottom:.15cqw}
+input:not([type=checkbox]):not([type=file]),select{height:2.9cqw;min-height:30px}
+.hoja input:not([type=checkbox]),.hoja select{height:auto;min-height:0}
+input[type=date]{display:block;min-width:0}input[type=date]::-webkit-date-and-time-value{text-align:center;min-height:1.2em}
+@media(pointer:coarse){input[type=date]{-webkit-appearance:none;appearance:none}}
 #giro{display:none}
 @media(orientation:portrait) and (max-width:820px){#giro{display:block;text-align:center;background:var(--na);color:var(--gr);padding:6px;font-weight:600}}
 @media(pointer:coarse){input,textarea,select{font-size:max(1.3cqw,16px)}.hoja input,.hoja select{font-size:16px}}
 </style></head><body>
 <header><img src="logo.png" alt=""><h1>La Huella de Bibi &amp; Tris</h1>
 <span class="sp"></span><span id="syncEst"></span><span id="estado"></span>
-<button id="bSync" title="Sincronizar con Dropbox">☁ Dropbox</button><button id="bCar">Carpeta del proyecto</button><button id="bExp">Exportar</button><button id="bImp">Importar</button><button id="bBak">Backup</button><button id="bRes">Restaurar</button>
+<button id="bDest" style="display:none"></button><button id="bSync" title="Sincronizar con Dropbox">☁ Dropbox</button><button id="bCar">Carpeta del proyecto</button><button id="bExp">Exportar</button><button id="bImp">Importar</button><button id="bBak">Backup</button><button id="bRes">Restaurar</button>
 <input type="file" id="fArc" hidden></header><div id="giro">↻ Gira el dispositivo en horizontal para ver el cuaderno completo.</div>
 <div class="wrap"><aside class="lado" id="ladoI"><img class="deco d1" src="recursos/abrazo.webp" alt="Asia, Hada, Irina, Bibi y Tris"><div class="btns"><button id="bAdd">+ Añadir peludo</button><button id="bDel" class="suave">Eliminar peludo</button></div><img class="deco d3" src="recursos/bibi.webp" alt="Bibi"></aside><div class="cuad" id="cuad"><div class="pag" id="pL"></div><div class="pag" id="pR"></div><div id="tabs"></div><button class="comp" id="bComp" title="Índice de peludos"></button></div><aside class="lado" id="ladoD"><img class="deco d2" src="recursos/corazon.webp" alt="Mis cinco estrellas"><img class="deco d4" src="recursos/tris.webp" alt="Tris"></aside></div>
 <div id="modal"></div><input type="file" id="fFoto" accept="image/*" hidden>
@@ -77,7 +85,7 @@ table{width:100%;border-collapse:collapse}th{font-weight:600;color:#7b2a1c;text-
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eur=n=>(+n||0).toLocaleString('es-ES',{style:'currency',currency:'EUR'}),fec=d=>d?d.split('-').reverse().join('/'):'',hoy=()=>new Date().toISOString().slice(0,10),nid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-const nueva=n=>({id:nid(),nombre:n||'',nac:'',alias:'',perro:false,gato:false,macho:false,hembra:false,foto:'',caracter:'',gustos:'',alergias:'',visitas:[],proxima:'',conf:false,pesos:[]});
+const nueva=n=>({id:nid(),nombre:n||'',nac:'',alias:'',fotoOrig:'',perro:false,gato:false,macho:false,hembra:false,foto:'',caracter:'',gustos:'',alergias:'',visitas:[],proxima:'',conf:false,pesos:[]});
 let vista='pet',gp=0;
 const MOVIL=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform)),WEB_MODE=MOVIL||!window.showDirectoryPicker;
 let S={pets:[nueva('Bibi'),nueva('Tris')],pienso:[],gastos:[]},cur=0,root=null,dirs={};
@@ -105,29 +113,46 @@ async function abrirArchivo(sub,types,fb){try{if(window.showOpenFilePicker){cons
 async function guardarArchivo(sub,nombre,texto){try{if(window.showSaveFilePicker){const o={suggestedName:nombre,types:JSONT};if(dirs[sub])o.startIn=dirs[sub];const h=await showSaveFilePicker(o);const w=await h.createWritable();await w.write(texto);await w.close();estado('Guardado ✓');return}}catch(e){if(e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([texto]));a.download=nombre;a.click()}
 const cargarJSON=async sub=>{const f=await abrirArchivo(sub,JSONT,'.json');if(!f)return;try{const d=JSON.parse(await f.text());if(!confirm('Se sustituirán los datos actuales por los del archivo. ¿Continuar?'))return;S=d;migrar();Sync.ensureStamps(S);guardar();render()}catch{alert('El archivo no es una copia válida.')}};
-$('#bExp').onclick=()=>guardarArchivo('EXPORTACION','huella-exportacion-'+hoy()+'.json',JSON.stringify(S,null,1));
-$('#bBak').onclick=()=>guardarArchivo('BACKUP','BK_Huella-de-Bibi-y-Tris_'+hoy()+'.json',JSON.stringify(S,null,1));
-$('#bImp').onclick=()=>cargarJSON('EXPORTACION');$('#bRes').onclick=()=>cargarJSON('BACKUP');
+let destino=localStorage.getItem('huellaDestino')||'dbx';
+const enDbx=()=>destino==='dbx'&&Sync.status().connected;
+function pintarDestino(){const b=$('#bDest'),c=Sync.status().connected;b.style.display=c?'':'none';b.textContent=destino==='dbx'?'Guardar en: ☁ Dropbox':'Guardar en: 💾 Este dispositivo';b.title='Cambia dónde se guardan Exportar y Backup y desde dónde se importan'}
+async function enviar(carpeta,nombre){const txt=JSON.stringify(S,null,1);
+  if(enDbx()){try{await Sync.upload('/'+carpeta+'/Huella/'+nombre,new Blob([txt]));estado('Guardado en Dropbox: '+carpeta+'/Huella ✓');return}catch(er){alert('No se pudo guardar en Dropbox ('+er.message+'). Se guardará en este dispositivo.')}}
+  await guardarArchivo(carpeta,nombre,txt)}
+function aplicar(d){if(!d||!Array.isArray(d.pets))return alert('El archivo no es una copia válida de La Huella.');if(!confirm('Se sustituirán los datos actuales por los del archivo. ¿Continuar?'))return;S=d;migrar();Sync.ensureStamps(S);guardar();render()}
+async function elegirDbx(carpeta){ven('<h2>'+(carpeta==='BACKUP'?'Restaurar copia de seguridad':'Importar')+'</h2><p class="mut">Archivos en Dropbox · '+carpeta+'/Huella</p><div id="dbxLista"><p class="mut">Cargando…</p></div>');
+  try{let a=await Sync.list('/'+carpeta+'/Huella');if(carpeta==='BACKUP')a=a.concat((await Sync.list('/BACKUP')).filter(x=>/^BK_Huella/i.test(x.name)));
+    a=a.filter((x,i)=>a.findIndex(y=>y.path_display===x.path_display)===i).sort((x,y)=>y.server_modified.localeCompare(x.server_modified));
+    $('#dbxLista').innerHTML=a.length?`<table>${a.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${new Date(x.server_modified).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</td><td class="r"><button data-dbxp="${esc(x.path_display)}">Cargar</button></td></tr>`).join('')}</table>`:'<p class="mut">No hay archivos en esta carpeta de Dropbox. Pulsa «Guardar en» para usar este dispositivo.</p>'}
+  catch(er){$('#dbxLista').innerHTML='<p class="err">'+esc(er.message)+'</p>'}}
+$('#bExp').onclick=()=>enviar('EXPORTACION','Huella-exportacion_'+hoy()+'.json');
+$('#bBak').onclick=()=>enviar('BACKUP','BK_Huella-de-Bibi-y-Tris_'+hoy()+'.json');
+$('#bImp').onclick=()=>enDbx()?elegirDbx('EXPORTACION'):cargarJSON('EXPORTACION');
+$('#bRes').onclick=()=>enDbx()?elegirDbx('BACKUP'):cargarJSON('BACKUP');
 /* ---- páginas ---- */
 const ult=a=>a.reduce((b,x)=>!b||x.f>=b.f?x:b,null);
 function render(){
   const p=P(),g=Math.floor(cur/12);
   $('#tabs').innerHTML=Array.from({length:12},(_,j)=>{const i=g*12+j,q=S.pets[i];return`<button class="tab ${vista==='pet'&&i===cur?'on':''}" style="top:${(70+j*73.4-33)/10.33}%" data-t="${i}" ${q?'':'disabled'} data-n="${esc(q?.nombre||'Peludo '+(i+1))}">${q?i+1:''}</button>`}).join('');
   if(vista==='gal')return galeria();
-  $('#pL').innerHTML=`<div class="f" style="align-items:start"><div class="foto" id="foto" style="${p.foto?`background-image:url(${p.foto});padding:0`:''}">${p.foto?'':'Toca para añadir su foto'}</div>
+  $('#pL').innerHTML=`<div class="f" style="align-items:start"><div class="foto" id="foto" style="${p.foto?`background-image:url(${p.foto});padding:0`:''}">${p.foto?'':'Toca para añadir su foto'}${p.fotoOrig&&Sync.status().connected?'<button class="mini" id="verOrig">Ver original</button>':''}</div>
   <div class="c" style="gap:1cqw;width:23cqw"><div class="f"><div style="width:10.5cqw;flex:none"><label>Nombre</label><input data-k="nombre" value="${esc(p.nombre)}"></div><div class="w10"><label>Fecha de nacimiento</label><input type="date" data-k="nac" value="${p.nac}"></div></div>
   <div><label>Alias</label><input data-k="alias" value="${esc(p.alias)}"></div>
   <div class="f" style="align-items:center;justify-content:space-between"><div class="c" style="gap:.8cqw"><div class="chk"><label><input type="checkbox" data-k="perro" ${p.perro?'checked':''}>Perro</label><label><input type="checkbox" data-k="gato" ${p.gato?'checked':''}>Gato</label></div><div class="chk"><label><input type="checkbox" data-k="macho" ${p.macho?'checked':''}>Macho</label><label><input type="checkbox" data-k="hembra" ${p.hembra?'checked':''}>Hembra</label></div></div><div class="circ" title="Nº de ${esc(p.nombre)}">${cur+1}</div></div></div></div>
-  <div class="f" style="align-items:stretch"><div class="g1"><label>Carácter</label><textarea data-k="caracter" style="height:13cqw">${esc(p.caracter)}</textarea></div><div class="g1"><label>Lo que más le gusta</label><textarea data-k="gustos" style="height:13cqw">${esc(p.gustos)}</textarea></div></div>
-  <div><label>Alergias</label><textarea data-k="alergias" style="height:10cqw">${esc(p.alergias)}</textarea></div>`;
+  <div class="f" style="align-items:stretch"><div class="g1"><label>Carácter</label><textarea data-k="caracter" style="height:11.5cqw">${esc(p.caracter)}</textarea></div><div class="g1"><label>Lo que más le gusta</label><textarea data-k="gustos" style="height:11.5cqw">${esc(p.gustos)}</textarea></div></div>
+  <div><label>Alergias</label><textarea data-k="alergias" style="height:8cqw">${esc(p.alergias)}</textarea></div>
+  <div class="f" style="justify-content:center;margin-top:auto"><button id="bGuardar">Guardar ficha</button></div>`;
   const v=ult(p.visitas),w=ult(p.pesos);
-  $('#pR').innerHTML=`<div><h3>Visitas al veterinario</h3>
-  <div class="f"><div class="w10"><label>Fecha</label><input type="date" id="vf" value="${hoy()}"></div><div class="g1"><label>Motivo</label><input id="vm"></div><div class="w6"><label>Coste €</label><input type="number" step="0.01" min="0" id="vc"></div></div>
-  <div class="f" style="margin-top:.8cqw"><div class="g1"><label>Notas</label><input id="vn"></div><button id="addV">Añadir visita</button></div>
-  <div class="ult">${v?`<b>Última visita · ${fec(v.f)}</b> ${v.c?'· '+eur(v.c):''}<br>${esc(v.m)}${v.n?` <span class="mano">— ${esc(v.n)}</span>`:''}`:'<span class="mut">Todavía no hay visitas registradas.</span>'}</div>
-  <div class="f" style="margin-top:1cqw"><div class="w10"><label>Próxima visita</label><input type="date" data-k="proxima" value="${p.proxima}"></div><div class="chk" style="padding-bottom:.5cqw"><label><input type="checkbox" data-k="conf" ${p.conf?'checked':''}>Cita confirmada</label></div></div></div>
-  <div><h3>Peso</h3><div class="f"><div class="w10"><label>Fecha</label><input type="date" id="pf" value="${hoy()}"></div><div class="w7"><label>Peso (kg)</label><input type="number" step="0.01" min="0" id="pk"></div><button id="addP">Añadir peso</button></div>
-  <div class="ult">${w?`<b>Último peso · ${fec(w.f)}</b> &nbsp; ${String(w.kg).replace('.',',')} kg`:'<span class="mut">Todavía no hay pesos anotados.</span>'}</div></div>
+  $('#pR').innerHTML=`<div><div class="hd"><h3>Visitas al veterinario</h3><button id="addV">Añadir visita</button></div>
+  <div class="f"><div class="w10"><label>Fecha</label><input type="date" id="vf" value="${hoy()}"></div><div class="w6"><label>Coste €</label><input type="number" step="0.01" min="0" id="vc"></div></div>
+  <div style="margin-top:.7cqw"><label>Motivo</label><textarea id="vm" style="height:4cqw"></textarea></div>
+  <div style="margin-top:.7cqw"><label>Notas</label><input id="vn"></div>
+  <div class="ult">${v?`<b>Última visita · ${fec(v.f)}</b> ${v.c?'· '+eur(v.c):''}<br><span class="pw">${esc(v.m)}</span>${v.n?` <span class="mano">— ${esc(v.n)}</span>`:''}`:'<span class="mut">Todavía no hay visitas registradas.</span>'}</div>
+  <div class="f" style="margin-top:.8cqw"><div class="w10"><label>Próxima visita</label><input type="date" data-k="proxima" value="${p.proxima}"></div><div class="chk" style="padding-bottom:.5cqw"><label><input type="checkbox" data-k="conf" ${p.conf?'checked':''}>Cita confirmada</label></div></div></div>
+  <div><div class="hd"><h3>Peso</h3><button id="addP">Añadir peso</button></div>
+  <div class="f"><div class="w10"><label>Fecha</label><input type="date" id="pf" value="${hoy()}"></div><div class="w7"><label>Peso (kg)</label><input type="number" step="0.01" min="0" id="pk"></div></div>
+  <div style="margin-top:.7cqw"><label>Notas</label><input id="pn"></div>
+  <div class="ult">${w?`<b>Último peso · ${fec(w.f)}</b> &nbsp; ${String(w.kg).replace('.',',')} kg${w.n?` <span class="mano">— ${esc(w.n)}</span>`:''}`:'<span class="mut">Todavía no hay pesos anotados.</span>'}</div></div>
   <div class="f" style="justify-content:center;margin-top:auto;gap:1.6cqw"><button id="bAnt2">Datos anteriores</button><button id="bGas2">Gastos</button></div>`;
   document.title=(p.nombre||'Peludo')+' · La Huella de Bibi & Tris';
 }
@@ -138,6 +163,7 @@ function galeria(){const n=Math.max(1,Math.ceil(S.pets.length/12));gp=Math.min(g
 document.addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;const t=e.target,p=P();p[k]=t.type==='checkbox'?t.checked:t.value;
   const ex={perro:'gato',gato:'perro',macho:'hembra',hembra:'macho'};if(ex[k]&&t.checked){p[ex[k]]=false;render()}
   guardar();if(k==='nombre')render()});
+let tI;document.addEventListener('input',e=>{const t=e.target,k=t.dataset.k;if(!k||t.type==='checkbox'||t.type==='date')return;P()[k]=t.value;clearTimeout(tI);tI=setTimeout(guardar,800)});
 const val=id=>$('#'+id)?.value.trim();
 document.addEventListener('click',async e=>{const t=e.target,id=t.id,D=t.closest('[data-del]');
   if(t.dataset.t!=null&&t.dataset.t!==''){cur=+t.dataset.t;vista='pet';render();return}
@@ -145,11 +171,15 @@ document.addEventListener('click',async e=>{const t=e.target,id=t.id,D=t.closest
   if(t.dataset.gp){gp=Math.max(0,gp+ +t.dataset.gp);render();return}
   if(id==='foto')pedirFoto();
   if(id==='addV'){if(!val('vf')||!val('vm'))return alert('Indica fecha y motivo.');P().visitas.push({id:nid(),f:val('vf'),m:val('vm'),n:val('vn'),c:+val('vc')||0});guardar();render()}
-  if(id==='addP'){if(!val('pf')||!val('pk'))return alert('Indica fecha y peso.');P().pesos.push({id:nid(),f:val('pf'),kg:+val('pk')});guardar();render()}
+  if(id==='addP'){if(!val('pf')||!val('pk'))return alert('Indica fecha y peso.');P().pesos.push({id:nid(),f:val('pf'),kg:+val('pk'),n:val('pn')});guardar();render()}
   if(id==='bAdd'){S.pets.push(nueva('Nuevo peludo'));cur=S.pets.length-1;vista='pet';guardar();render()}
   if(id==='bDel'){if(S.pets.length<2)return alert('Debe quedar al menos un peludo en el cuaderno.');if(confirm('¿Eliminar a '+(P().nombre||'este peludo')+' y todos sus datos?\n\nSolo debe usarse si fue un error. Se puede recuperar con una copia de Backup.')){S.pets.splice(cur,1);cur=Math.max(0,cur-1);vista='pet';guardar();render()}}
   if(id==='bAnt'||id==='bAnt2')anteriores('p',cur);
   if(id==='bGas2')gastos();
+  if(id==='bGuardar'){guardar();t.textContent='✓ Guardado';setTimeout(()=>{const g=$('#bGuardar');if(g)g.textContent='Guardar ficha'},1800);Sync.syncNow({}).catch(()=>{})}
+  if(id==='verOrig'){ven('<h2>Foto original</h2><p class="mut" id="origMsg">Cargando desde Dropbox…</p><div id="origImg"></div>');try{const u=URL.createObjectURL(await Sync.download(P().fotoOrig));$('#origImg').innerHTML='<img src="'+u+'" style="max-width:100%;border-radius:6px">';$('#origMsg').remove()}catch(er){$('#origMsg').textContent='No se pudo abrir el original ahora ('+er.message+'). La miniatura sigue disponible.'}}
+  if(t.dataset.dbxp){try{const d=JSON.parse(await(await Sync.download(t.dataset.dbxp)).text());$('#modal').innerHTML='';aplicar(d)}catch(er){alert('No se pudo cargar ese archivo: '+er.message)}}
+  if(id==='bDest'){destino=destino==='dbx'?'local':'dbx';localStorage.setItem('huellaDestino',destino);pintarDestino()}
   if(id==='bSync'){ven('<h2>Sincronizar con Dropbox</h2><div id="syncBody"></div>');pintarSync()}
   if(id==='syncConnect'){const c=val('syncCode');if(!c)return alert('Pega primero el código que te muestra Dropbox.');t.disabled=true;t.textContent='Conectando…';try{await Sync.connectWithCode(c);pintarSync();Sync.syncNow({}).catch(()=>{})}catch(er){alert(er.message);t.disabled=false;t.textContent='Conectar'}}
   if(id==='syncNow'){t.disabled=true;try{await Sync.syncNow({})}catch{}pintarSync()}
@@ -161,7 +191,8 @@ document.addEventListener('click',async e=>{const t=e.target,id=t.id,D=t.closest
   if(id==='addN'){if(!val('nf')||!val('nm')||!val('np'))return alert('Indica fecha, marca y precio.');S.pienso.push({id:nid(),f:val('nf'),m:val('nm'),q:val('nq'),k:+val('nk')||0,p:+val('np')});guardar();gastos()}
   if(id==='addG'){if(!val('gf')||!val('gc')||!val('gp'))return alert('Indica fecha, concepto e importe.');S.gastos.push({id:nid(),f:val('gf'),m:val('gc'),p:+val('gp')});guardar();gastos()}
 });
-async function pedirFoto(){const f=await abrirArchivo('ILUSTRACION',IMGT,'image/*');if(!f)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,420/Math.max(img.width,img.height));c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);P().foto=c.toDataURL('image/jpeg',.78);guardar();render()};img.src=URL.createObjectURL(f)}
+async function pedirFoto(){const f=await abrirArchivo('ILUSTRACION',IMGT,'image/*');if(!f)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,420/Math.max(img.width,img.height));c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);P().foto=c.toDataURL('image/jpeg',.78);P().fotoOrig='';guardar();render();subirOriginal(f,P().id)};img.src=URL.createObjectURL(f)}
+async function subirOriginal(f,id){if(!Sync.status().connected)return;const p=S.pets.find(x=>x.id===id);if(!p)return;try{const ext=((f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,''))||'jpg',slug=(p.nombre||'peludo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_');const r=await Sync.upload('/ILUSTRACIONES/Huella/'+slug+'_'+id.slice(-5)+'.'+ext,f);const q=S.pets.find(x=>x.id===id);if(q){q.fotoOrig=r.path_display;guardar();render()}estado('Foto original guardada en Dropbox ✓')}catch(er){estado('Foto guardada; el original no se pudo subir ahora.')}}
 /* ---- ventanas ---- */
 const ven=h=>{$('#modal').innerHTML=`<div class="vel"><div class="hoja"><button class="cerrar">Cerrar</button>${h}</div></div>`};
 const lis=(a,tipo,fila)=>a.length?`<table>${a.map(x=>`<tr>${fila(x)}<td class="r"><button class="x" data-del="${tipo}:${x.id}" title="Borrar">✕</button></td></tr>`).join('')}</table>`:'<p class="mut">Sin registros.</p>';
@@ -171,7 +202,7 @@ function grafica(pes){const a=[...pes].sort((x,y)=>x.f.localeCompare(y.f));if(a.
 function anteriores(m,i){const p=S.pets[i]||P();cur=S.pets.indexOf(p);
   ven(`<h2>Datos anteriores</h2><div class="f"><div style="max-width:240px"><label>Mascota</label><select id="aq" onchange="anteriores('${m}',+this.value)">${S.pets.map((q,j)=>`<option value="${j}" ${j===cur?'selected':''}>${esc(q.nombre||'Peludo '+(j+1))}</option>`).join('')}</select></div>
   <div class="sel" style="flex:none"><button data-m="p" class="${m==='p'?'on':''}">Peso</button> <button data-m="v" class="${m==='v'?'on':''}">Visitas veterinarias</button></div></div>
-  ${m==='p'?grafica(p.pesos)+lis([...p.pesos].reverse().sort((a,b)=>b.f.localeCompare(a.f)),'pesos',x=>`<td>${fec(x.f)}</td><td>${String(x.kg).replace('.',',')} kg</td>`):lis([...p.visitas].reverse().sort((a,b)=>b.f.localeCompare(a.f)),'visitas',x=>`<td>${fec(x.f)}</td><td>${esc(x.m)}<br><i>${esc(x.n)}</i></td><td class="r">${x.c?eur(x.c):''}</td>`)}`)}
+  ${m==='p'?grafica(p.pesos)+lis([...p.pesos].reverse().sort((a,b)=>b.f.localeCompare(a.f)),'pesos',x=>`<td>${fec(x.f)}</td><td>${String(x.kg).replace('.',',')} kg</td><td><i>${esc(x.n||'')}</i></td>`):lis([...p.visitas].reverse().sort((a,b)=>b.f.localeCompare(a.f)),'visitas',x=>`<td>${fec(x.f)}</td><td>${esc(x.m)}<br><i>${esc(x.n)}</i></td><td class="r">${x.c?eur(x.c):''}</td>`)}`)}
 function gastos(){const r={},add=(f,t,v)=>{if(f&&+v)(r[f.slice(0,7)]??={pienso:0,vet:0,otros:0})[t]+=+v};
   S.pienso.forEach(x=>add(x.f,'pienso',x.p));S.gastos.forEach(x=>add(x.f,'otros',x.p));S.pets.forEach(p=>p.visitas.forEach(x=>add(x.f,'vet',x.c)));
   const ks=Object.keys(r).sort().reverse(),mes=k=>['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][k.slice(5)-1]+' '+k.slice(0,4);
@@ -191,7 +222,7 @@ async function pintarSync(){const b=$('#syncBody');if(!b)return;const st=Sync.st
   if(!st.connected){const draft=$('#syncCode')?.value||'';let u='';try{u=await Sync.authUrl()}catch{}
     b.innerHTML=`<p>Conecta tu Dropbox para tener a Bibi, Tris y todos los peludos al día en Windows, Android y iPad. La app solo usa su propia carpeta dentro de <b>Apps</b> de tu Dropbox.</p><ol><li>Pulsa <b>Abrir Dropbox</b>, inicia sesión y pulsa <b>Permitir</b>.</li><li>Copia el <b>código</b> que te muestra Dropbox.</li><li>Pégalo aquí y pulsa <b>Conectar</b>.</li></ol>${u?`<p><a class="btnlink" href="${u}" target="_blank" rel="noopener">Abrir Dropbox…</a></p>`:'<p class="err">No se pudo preparar la conexión en este navegador.</p>'}<label>Código de Dropbox</label><input id="syncCode" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí el código" value="${esc(draft)}"><div class="f" style="margin-top:12px"><button id="syncConnect">Conectar</button></div>${st.error?`<p class="err">${esc(st.error)}</p>`:''}`}
   else b.innerHTML=`<p class="ok">● Conectado a Dropbox</p><p>Última sincronización: <b>${hora(st.lastSyncAt)}</b>${st.busy?' (sincronizando…)':''}</p>${st.lastResult?`<p class="mut">${esc(st.lastResult)}</p>`:''}${st.error?`<p class="err">${esc(st.error)}</p>`:''}${st.pending&&!st.error?'<p>Hay cambios pendientes: se enviarán cuando haya conexión.</p>':''}<p class="mut">Se sincroniza sola al abrir la app, unos segundos después de cada cambio y al recuperar la conexión. Las copias automáticas (máx. 1 al día) van a la carpeta BACKUP de la app en tu Dropbox.</p><div class="f" style="margin-top:12px;justify-content:space-between"><button id="syncDisc">Desconectar este dispositivo</button><button id="syncNow">Sincronizar ahora</button></div>`}
-Sync.onStatus(st=>{const e=!st.connected?'':st.busy?'☁ Sincronizando…':st.error&&!st.pending?'☁ Error al sincronizar':st.pending?'☁ Pendiente':'☁ Sincronizado '+hora(st.lastSyncAt);$('#syncEst').textContent=e;if($('#syncBody')&&document.activeElement?.id!=='syncCode')pintarSync()});
+Sync.onStatus(st=>{pintarDestino();const e=!st.connected?'':st.busy?'☁ Sincronizando…':st.error&&!st.pending?'☁ Error al sincronizar':st.pending?'☁ Pendiente':'☁ Sincronizado '+hora(st.lastSyncAt);$('#syncEst').textContent=e;if($('#syncBody')&&document.activeElement?.id!=='syncCode')pintarSync()});
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service worker no registrado',e)));
 iniciar();
 </script></body></html>

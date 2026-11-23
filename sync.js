@@ -18,9 +18,9 @@
   const nowIso = () => nowFn();
 
   /* ---------- PARTE 1 · NÚCLEO (sin red) ---------- */
-  const hPet = p => JSON.stringify([p.nombre, p.nac, p.alias, !!p.perro, !!p.gato, !!p.macho, !!p.hembra, p.foto || "", p.caracter, p.gustos, p.alergias, p.proxima, !!p.conf]);
+  const hPet = p => JSON.stringify([p.nombre, p.nac, p.alias, !!p.perro, !!p.gato, !!p.macho, !!p.hembra, p.foto || "", p.caracter, p.gustos, p.alergias, p.proxima, !!p.conf, p.fotoOrig || ""]);
   const hVis = v => JSON.stringify([v.f, v.m, v.n, v.c]);
-  const hPes = w => JSON.stringify([w.f, w.kg]);
+  const hPes = w => JSON.stringify([w.f, w.kg, w.n || ""]);
   const hPie = x => JSON.stringify([x.f, x.m, x.q, x.k, x.p]);
   const hGas = x => JSON.stringify([x.f, x.m, x.p]);
   const isSeed = p => (p.updatedAt || EPOCH) === EPOCH && !p.foto && !(p.visitas || []).length && !(p.pesos || []).length && !p.caracter && !p.gustos && !p.alergias && !p.nac && !p.alias;
@@ -214,7 +214,7 @@
         const changed = !rd || canon(m.data) !== canon(rd);
         if (changed) {
           const doneDay = rd && rd.lastRemoteBackup;   // copia en Dropbox (máx. 1 al día) de lo que había antes de cambiarlo
-          if (remote && doneDay !== today()) { try { await remotePut(remote.text, null, "/BACKUP/BK_Huella-de-Bibi-y-Tris_" + stampName() + ".json", true); m.data.lastRemoteBackup = today(); } catch (e) { if (e.code === "network") throw e; } }
+          if (remote && doneDay !== today()) { try { await remotePut(remote.text, null, "/BACKUP/Huella/BK_Huella-de-Bibi-y-Tris_" + stampName() + ".json", true); m.data.lastRemoteBackup = today(); } catch (e) { if (e.code === "network") throw e; } }
           else if (doneDay) m.data.lastRemoteBackup = doneDay;
           try { state.rev = (await remotePut(JSON.stringify(m.data), remote ? remote.rev : null)).rev; } catch (e) { if (e.code === "conflict" && at < 3) continue; throw e; }
         } else if (remote) state.rev = remote.rev;
@@ -243,6 +243,20 @@
   }
   function syncNow(opts) { if (running) { rerun = true; return running; } running = doSync(opts || {}).finally(() => { running = null; if (rerun) { rerun = false; schedule(1500); } }); return running; }
   function schedule(ms) { if (!auth) return; clearTimeout(timer); timer = setTimeout(() => { syncNow({ auto: true }).catch(() => {}); }, ms == null ? 4000 : ms); }
+  /* ---------- Carpetas de la app en Dropbox: ILUSTRACIONES/Huella, EXPORTACION/Huella, BACKUP/Huella ---------- */
+  const argH = o => JSON.stringify(o).replace(/[\u007f-\uffff]/g, c => "\\u" + ("0000" + c.charCodeAt(0).toString(16)).slice(-4));   // la cabecera de Dropbox solo admite ASCII
+  async function apiUpload(path, body) {   // Dropbox crea las carpetas que falten; si el nombre existe, no lo pisa (autorename)
+    return (await dbx("https://content.dropboxapi.com/2/files/upload", { method: "POST", headers: { "Dropbox-API-Arg": argH({ path, mode: { ".tag": "add" }, autorename: true, mute: true }), "Content-Type": "application/octet-stream" }, body })).json();
+  }
+  async function apiList(path) {
+    try {
+      let r = await (await dbx("https://api.dropboxapi.com/2/files/list_folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) })).json(), e = r.entries || [];
+      while (r.has_more) { r = await (await dbx("https://api.dropboxapi.com/2/files/list_folder/continue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cursor: r.cursor }) })).json(); e = e.concat(r.entries || []); }
+      return e.filter(x => x[".tag"] === "file");
+    } catch (er) { if (er.code === "not_found") return []; throw er; }
+  }
+  async function apiDownload(path) { return (await dbx("https://content.dropboxapi.com/2/files/download", { method: "POST", headers: { "Dropbox-API-Arg": argH({ path }) } })).blob(); }
+
   async function init(h) {
     host = h;
     try { auth = await kvGet("auth") || null; state = (await kvGet("state")) || {}; status.connected = !!auth; status.lastSyncAt = state.lastSyncAt || null; status.lastResult = state.lastResult || null; } catch (e) { console.warn("Sync:", e); }
@@ -256,7 +270,7 @@
   }
   const api = { _setNow: f => { nowFn = f; }, EPOCH, ensureStamps, makeBase, stampChanges, mergeData, canon, init, syncNow, schedule, connectWithCode, disconnect,
     authUrl: async () => (await getPkce()).url, status: () => status, onStatus: f => listeners.push(f),
-    reset: d => { base = makeBase(d); }, stamp: d => { base = stampChanges(d, base); } };
+    upload: apiUpload, list: apiList, download: apiDownload, reset: d => { base = makeBase(d); }, stamp: d => { base = stampChanges(d, base); } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Sync = api;
 })(typeof window !== "undefined" ? window : globalThis);
