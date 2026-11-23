@@ -1,0 +1,52 @@
+LA HUELLA DE BIBI & TRIS · V2.0 · PASOS (Windows + Android + iPad con Dropbox)
+=========================================================================
+
+ANTES DE EMPEZAR
+  1) En tu versión actual (V1.3) pulsa BACKUP y guarda la copia. Es tu red de seguridad.
+
+PASO 1 · WINDOWS (primero este, porque es el que sube tus datos)
+  1) Descomprime LA_HUELLA_V2_WINDOWS.zip en una carpeta nueva.
+  2) Abre LaHuellaDeBibiyTris.html con Edge o Chrome.
+  3) Pulsa "Carpeta del proyecto" y elige esa misma carpeta (crea DATOS, BACKUP, etc.).
+  4) Pulsa "Importar" y elige tu BACKUP de la V1.3 para cargar tus peludos.
+     (Si prefieres, elige como carpeta del proyecto la antigua que ya tiene DATOS/datos.json.)
+  5) Comprueba que están todos tus peludos con sus pesos y visitas.
+
+PASO 2 · DROPBOX en Windows (no hay que crear nada: se usa la misma app del Compendio)
+  1) Pulsa "☁ Dropbox".
+  2) Pulsa "Abrir Dropbox…", inicia sesión y pulsa "Permitir".
+  3) Dropbox te enseña un CÓDIGO. Cópialo, pégalo en la ventana y pulsa "Conectar".
+  4) Verás "Primera sincronización: tus datos se han subido a Dropbox".
+  En tu Dropbox aparecerá, dentro de Apps, el archivo Huella-de-Bibi-y-Tris.json.
+
+PASO 3 · GITHUB (la web para Android e iPad)
+  1) Entra en github.com con tu cuenta (la misma del Compendio).
+  2) Pulsa "New" (nuevo repositorio). Nombre: huella  ·  Public  ·  Create repository.
+  3) Pulsa "uploading an existing file".
+  4) Descomprime LA_HUELLA_V2_WEB_ANDROID_IPAD.zip y ARRASTRA su CONTENIDO (todos los archivos
+     y la carpeta recursos; no la carpeta contenedora) a la ventana de GitHub.
+  5) Pulsa "Commit changes".
+  6) Settings → Pages → Source: "Deploy from a branch" → Branch: main, carpeta /(root) → Save.
+  7) Espera 1-2 minutos. La dirección será:  https://TU-USUARIO.github.io/huella/
+
+PASO 4 · iPad
+  1) Abre esa dirección en Safari.
+  2) Compartir → "Añadir a pantalla de inicio".
+  3) Abre la app desde el icono → "☁ Dropbox" → Abrir Dropbox → Permitir → copia el código
+     (Dropbox te lo muestra) → vuelve a la app, pégalo y pulsa Conectar.
+  Los peludos llegarán solos.
+
+PASO 5 · ANDROID
+  1) Abre la dirección en Chrome.
+  2) Menú ⋮ → "Instalar aplicación" (o "Añadir a pantalla de inicio").
+  3) Igual que en el iPad: ☁ Dropbox → Permitir → código → Conectar.
+
+DÍA A DÍA
+  - Se sincroniza sola al abrir, unos segundos después de cada cambio y al recuperar la conexión.
+  - Botón "Sincronizar ahora" en la ventana de ☁ Dropbox si quieres forzarlo.
+  - Una copia automática al día en la carpeta BACKUP de la app en tu Dropbox.
+  - Si algo sale mal: Restaurar (BACKUP en Windows) o Importar la copia.
+
+PARA ACTUALIZAR LA WEB MÁS ADELANTE
+  Sube los archivos nuevos al mismo repositorio (sustituyendo) y cambia el número V de sw.js.
+  Cierra y abre la app dos veces para que se actualice.
