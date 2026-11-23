@@ -3,10 +3,11 @@
   "short_name": "La Huella",
   "description": "Cuaderno de fichas de nuestras mascotas, con sincronización en Dropbox.",
   "lang": "es",
+  "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#c98a35",
   "theme_color": "#5e1a22",
   "icons": [
