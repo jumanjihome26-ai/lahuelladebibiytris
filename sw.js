@@ -1,8 +1,8 @@
-// Service worker de LA HUELLA DE BIBI & TRIS (V2.1.0).
+// Service worker de LA HUELLA DE BIBI & TRIS (V2.2.0).
 // Solo guarda en caché los archivos de la APLICACIÓN para que abra sin conexión.
 // Nunca toca los datos del usuario (están en IndexedDB, que el service worker no lee ni borra).
 // Al publicar una versión nueva, cambia el número de CACHE.
-const CACHE = "huella-bibi-tris-v2-1-0";
+const CACHE = "huella-bibi-tris-v2-2-0";
 const SHELL = ["./", "index.html", "sync.js", "cuaderno.jpg", "logo.png", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png", "recursos/abrazo.webp", "recursos/corazon.webp", "recursos/bibi.webp", "recursos/tris.webp"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

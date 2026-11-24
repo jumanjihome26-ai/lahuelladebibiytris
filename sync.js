@@ -22,8 +22,9 @@
   const hVis = v => JSON.stringify([v.f, v.m, v.n, v.c]);
   const hPes = w => JSON.stringify([w.f, w.kg, w.n || ""]);
   const hPie = x => JSON.stringify([x.f, x.m, x.q, x.k, x.p]);
+  const hCit = c => JSON.stringify([c.f, c.h || "", c.m || "", !!c.conf]);
   const hGas = x => JSON.stringify([x.f, x.m, x.p]);
-  const isSeed = p => (p.updatedAt || EPOCH) === EPOCH && !p.foto && !(p.visitas || []).length && !(p.pesos || []).length && !p.caracter && !p.gustos && !p.alergias && !p.nac && !p.alias;
+  const isSeed = p => (p.updatedAt || EPOCH) === EPOCH && !p.foto && !(p.visitas || []).length && !(p.pesos || []).length && !(p.citas || []).length && !p.caracter && !p.gustos && !p.alergias && !p.nac && !p.alias;
 
   function ensureStamps(d) {
     let ch = false;
@@ -31,7 +32,7 @@
     if (!Array.isArray(d.pienso)) { d.pienso = []; ch = true; }
     if (!Array.isArray(d.gastos)) { d.gastos = []; ch = true; }
     const st = x => { if (!x.updatedAt) { x.updatedAt = EPOCH; ch = true; } };
-    for (const p of d.pets || []) { st(p); (p.visitas || []).forEach(st); (p.pesos || []).forEach(st); }
+    for (const p of d.pets || []) { st(p); (p.visitas || []).forEach(st); (p.pesos || []).forEach(st); (p.citas || []).forEach(st); }
     d.pienso.forEach(st); d.gastos.forEach(st);
     if (d.schema !== 2) { d.schema = 2; ch = true; }
     return ch;
@@ -39,7 +40,7 @@
   const mapOf = (arr, h) => new Map((arr || []).map(x => [x.id, h(x)]));
   function makeBase(d) {
     const b = { pets: new Map(), pienso: mapOf(d.pienso, hPie), gastos: mapOf(d.gastos, hGas) };
-    for (const p of d.pets || []) b.pets.set(p.id, { h: hPet(p), name: norm(p.nombre), vis: mapOf(p.visitas, hVis), pes: mapOf(p.pesos, hPes) });
+    for (const p of d.pets || []) b.pets.set(p.id, { h: hPet(p), name: norm(p.nombre), vis: mapOf(p.visitas, hVis), pes: mapOf(p.pesos, hPes), cit: mapOf(p.citas, hCit) });
     return b;
   }
   // Compara con la «foto» anterior: sella lo modificado y anota lo borrado (no hay que tocar el resto del programa).
@@ -57,15 +58,15 @@
     const ids = new Set();
     for (const p of d.pets || []) {
       ids.add(p.id); const b = base.pets.get(p.id);
-      if (!b) { p.updatedAt = now; clr("pet", p.id); (p.visitas || []).forEach(v => { v.updatedAt = now; }); (p.pesos || []).forEach(w => { w.updatedAt = now; }); continue; }
+      if (!b) { p.updatedAt = now; clr("pet", p.id); (p.visitas || []).forEach(v => { v.updatedAt = now; }); (p.pesos || []).forEach(w => { w.updatedAt = now; }); (p.citas || []).forEach(c => { c.updatedAt = now; }); continue; }
       if (hPet(p) !== b.h) p.updatedAt = now;
-      flat(p.visitas, b.vis, hVis, "visit", { petId: p.id }); flat(p.pesos, b.pes, hPes, "peso", { petId: p.id });
+      flat(p.visitas, b.vis, hVis, "visit", { petId: p.id }); flat(p.pesos, b.pes, hPes, "peso", { petId: p.id }); flat(p.citas, b.cit || new Map(), hCit, "cita", { petId: p.id });
     }
     for (const [id, b] of base.pets) if (!ids.has(id)) setT("pet", id, { name: b.name });
     flat(d.pienso, base.pienso, hPie, "pienso"); flat(d.gastos, base.gastos, hGas, "gasto");
     return makeBase(d);
   }
-  const effTime = p => { let m = p.updatedAt || EPOCH; for (const x of (p.visitas || []).concat(p.pesos || [])) if ((x.updatedAt || EPOCH) > m) m = x.updatedAt; return m; };
+  const effTime = p => { let m = p.updatedAt || EPOCH; for (const x of (p.visitas || []).concat(p.pesos || [], p.citas || [])) if ((x.updatedAt || EPOCH) > m) m = x.updatedAt; return m; };
   const canon = d => JSON.stringify([d.pets, d.pienso || [], d.gastos || [], (d.deleted || []).slice().sort((a, b) => (a.type + a.id).localeCompare(b.type + b.id))]);
 
   function mergeData(local, remote) {
@@ -108,13 +109,14 @@
       const out = Object.assign({}, w, { id: byName ? [l.id, r.id].sort()[0] : l.id });
       out.visitas = mergeArr(l.visitas || [], r.visitas || [], "visit", hVis, byName ? v => v.f + "|" + norm(v.m) : null);
       out.pesos = mergeArr(l.pesos || [], r.pesos || [], "peso", hPes, byName ? x => x.f + "|" + x.kg : null);
+      out.citas = mergeArr(l.citas || [], r.citas || [], "cita", hCit, byName ? c => c.f + "|" + (c.h || "") : null);
       const eff = effTime(out);
       if (killed("pet", l.id, eff) || killed("pet", r.id, eff)) { st.petsRemoved++; continue; }
       if (tombs.has("pet:" + l.id) || tombs.has("pet:" + r.id)) if (eff > (out.updatedAt || EPOCH)) out.updatedAt = eff;   // editado DESPUÉS del borrado: se conserva
       if (rWins && hPet(r) !== hPet(l)) st.petsUpdated++;
       out.__o = R.indexOf(r); merged.push(out);
     }
-    const pruneKids = p => { const k1 = (p.visitas || []).filter(v => !killed("visit", v.id, v.updatedAt || EPOCH)), k2 = (p.pesos || []).filter(v => !killed("peso", v.id, v.updatedAt || EPOCH)); st.itemsRemoved += (p.visitas || []).length + (p.pesos || []).length - k1.length - k2.length; p.visitas = k1; p.pesos = k2; };
+    const pruneKids = p => { const k1 = (p.visitas || []).filter(v => !killed("visit", v.id, v.updatedAt || EPOCH)), k2 = (p.pesos || []).filter(v => !killed("peso", v.id, v.updatedAt || EPOCH)); st.itemsRemoved += (p.visitas || []).length + (p.pesos || []).length - k1.length - k2.length; const k3 = (p.citas || []).filter(v => !killed("cita", v.id, v.updatedAt || EPOCH)); st.itemsRemoved += (p.citas || []).length - k3.length; p.visitas = k1; p.pesos = k2; p.citas = k3; };
     L.forEach((l, i) => { if (paired.has(l)) return; if (R.length && isSeed(l)) return;   // peludo vacío de un dispositivo nuevo: no se duplica
       pruneKids(l); if (killed("pet", l.id, effTime(l))) st.petsRemoved++; else { l.__o = 1e6 + i; merged.push(l); } });
     R.forEach((r, i) => { if (usedR.has(r)) return; pruneKids(r); if (killed("pet", r.id, effTime(r))) { st.petsRemoved++; return; } r.__o = i; merged.push(r); st.petsAdded++; });
