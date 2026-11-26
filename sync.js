@@ -70,7 +70,8 @@
     return makeBase(d);
   }
   const effTime = p => { let m = p.updatedAt || EPOCH; for (const x of (p.visitas || []).concat(p.pesos || [], p.citas || [])) if ((x.updatedAt || EPOCH) > m) m = x.updatedAt; return m; };
-  const canon = d => JSON.stringify([d.pets, d.pienso || [], d.gastos || [], d.marcas || [], d.conceptos || [], d.decos || [], (d.deleted || []).slice().sort((a, b) => (a.type + a.id).localeCompare(b.type + b.id))]);
+  const stable = o => Array.isArray(o) ? "[" + o.map(x => x === undefined ? "null" : stable(x)).join(",") + "]" : (o && typeof o === "object") ? "{" + Object.keys(o).filter(k => o[k] !== undefined).sort().map(k => JSON.stringify(k) + ":" + stable(o[k])).join(",") + "}" : JSON.stringify(o);
+  const canon = d => stable([d.pets, d.pienso || [], d.gastos || [], d.marcas || [], d.conceptos || [], d.decos || [], (d.deleted || []).slice().sort((a, b) => (a.type + a.id).localeCompare(b.type + b.id))]);
 
   function mergeData(local, remote) {
     const st = { petsAdded: 0, petsUpdated: 0, petsRemoved: 0, itemsAdded: 0, itemsUpdated: 0, itemsRemoved: 0 };
@@ -93,7 +94,7 @@
           const w = (y.updatedAt || EPOCH) >= (x.updatedAt || EPOCH) ? y : x;
           if (killed(type, x.id, w.updatedAt || EPOCH) || killed(type, y.id, w.updatedAt || EPOCH)) { st.itemsRemoved++; continue; }
           if (w === y && h(y) !== h(x)) st.itemsUpdated++;
-          out.push(Object.assign({}, w, { id: x.id !== y.id ? [x.id, y.id].sort()[0] : x.id }));
+          out.push(Object.assign({}, w === y ? x : y, w, { id: x.id !== y.id ? [x.id, y.id].sort()[0] : x.id }));
         } else if (killed(type, y.id, y.updatedAt || EPOCH)) st.itemsRemoved++; else { out.push(y); st.itemsAdded++; }
       }
       for (const x of la) { if (pair.has(x)) continue; if (killed(type, x.id, x.updatedAt || EPOCH)) st.itemsRemoved++; else out.push(x); }
@@ -109,7 +110,7 @@
     const merged = [];
     for (const [l, r, byName] of pairs) {
       const rWins = (r.updatedAt || EPOCH) >= (l.updatedAt || EPOCH), w = rWins ? r : l;
-      const out = Object.assign({}, w, { id: byName ? [l.id, r.id].sort()[0] : l.id });
+      const out = Object.assign({}, rWins ? l : r, w, { id: byName ? [l.id, r.id].sort()[0] : l.id });
       out.visitas = mergeArr(l.visitas || [], r.visitas || [], "visit", hVis, byName ? v => v.f + "|" + norm(v.m) : null);
       out.pesos = mergeArr(l.pesos || [], r.pesos || [], "peso", hPes, byName ? x => x.f + "|" + x.kg : null);
       out.citas = mergeArr(l.citas || [], r.citas || [], "cita", hCit, byName ? c => c.f + "|" + (c.h || "") : null);
@@ -132,7 +133,7 @@
   }
 
   /* ---------- PARTE 2 · DROPBOX ---------- */
-  let host = null, auth = null, state = {}, running = null, rerun = false, timer = null, kvdb = null, listeners = [], base = null, pk = null;
+  let host = null, auth = null, state = {}, running = null, rerun = false, chain = 0, timer = null, kvdb = null, listeners = [], base = null, pk = null;
   const status = { connected: false, busy: false, error: null, pending: false, lastSyncAt: null, lastResult: null };
   function kvOpen() { return new Promise((res, rej) => { if (kvdb) return res(kvdb); const q = indexedDB.open("HuellaSync", 1); q.onupgradeneeded = () => q.result.createObjectStore("kv"); q.onsuccess = () => { kvdb = q.result; res(kvdb); }; q.onerror = () => rej(q.error); }); }
   async function kvOp(mode, fn) { const db = await kvOpen(); return new Promise((res, rej) => { const tx = db.transaction("kv", mode); let r; try { r = fn(tx.objectStore("kv")); } catch (e) { rej(e); return; } tx.oncomplete = () => res(r ? r.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); }); }
@@ -247,7 +248,7 @@
     add(s.itemsAdded, "registro nuevo", "registros nuevos"); add(s.itemsUpdated, "registro actualizado", "registros actualizados"); add(s.itemsRemoved, "registro eliminado", "registros eliminados");
     return ((parts.length ? "Recibido: " + parts.join(", ") + ". " : "") + (r.uploaded ? "Tus cambios se han enviado a Dropbox." : "")).trim() || "Todo estaba al día.";
   }
-  function syncNow(opts) { if (running) { rerun = true; return running; } running = doSync(opts || {}).finally(() => { running = null; if (rerun) { rerun = false; schedule(1500); } }); return running; }
+  function syncNow(opts) { if (running) { rerun = true; return running; } running = doSync(opts || {}).finally(() => { running = null; if (rerun) { rerun = false; if (++chain <= 3) schedule(1500); else chain = 0; } else chain = 0; }); return running; }
   function schedule(ms) { if (!auth) return; clearTimeout(timer); timer = setTimeout(() => { syncNow({ auto: true }).catch(() => {}); }, ms == null ? 4000 : ms); }
   /* ---------- Carpetas de la app en Dropbox: ILUSTRACIONES/Huella, EXPORTACION/Huella, BACKUP/Huella ---------- */
   const argH = o => JSON.stringify(o).replace(/[\u007f-\uffff]/g, c => "\\u" + ("0000" + c.charCodeAt(0).toString(16)).slice(-4));   // la cabecera de Dropbox solo admite ASCII
