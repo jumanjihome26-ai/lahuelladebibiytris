@@ -18,28 +18,30 @@
   const nowIso = () => nowFn();
 
   /* ---------- PARTE 1 · NÚCLEO (sin red) ---------- */
-  const hPet = p => JSON.stringify([p.nombre, p.nac, p.alias, !!p.perro, !!p.gato, !!p.macho, !!p.hembra, p.foto || "", p.caracter, p.gustos, p.alergias, p.proxima, !!p.conf, p.fotoOrig || ""]);
+  const hPet = p => JSON.stringify([p.nombre, p.nac, p.alias, p.especie || "", p.sexo || "", p.foto || "", p.caracter, p.gustos, p.alergias, p.fotoOrig || "", !!p.chip, p.chipN || "", !!p.arco, p.arcoF || "", p.arcoImg || "", p.arcoMini || ""]);
+  const LISTS = ["pienso", "gastos", "marcas", "conceptos", "decos"];
+  const hMar = c => JSON.stringify([c.n]);
+  const hDec = c => JSON.stringify([c.path || "", c.img || ""]);
   const hVis = v => JSON.stringify([v.f, v.m, v.n, v.c]);
   const hPes = w => JSON.stringify([w.f, w.kg, w.n || ""]);
-  const hPie = x => JSON.stringify([x.f, x.m, x.q, x.k, x.p]);
+  const hPie = x => JSON.stringify([x.f, x.m, x.q, x.k, x.p, x.para || ""]);
   const hCit = c => JSON.stringify([c.f, c.h || "", c.m || "", !!c.conf]);
-  const hGas = x => JSON.stringify([x.f, x.m, x.p]);
+  const hGas = x => JSON.stringify([x.f, x.m, x.p, x.para || ""]);
   const isSeed = p => (p.updatedAt || EPOCH) === EPOCH && !p.foto && !(p.visitas || []).length && !(p.pesos || []).length && !(p.citas || []).length && !p.caracter && !p.gustos && !p.alergias && !p.nac && !p.alias;
 
   function ensureStamps(d) {
     let ch = false;
     if (!Array.isArray(d.deleted)) { d.deleted = []; ch = true; }
-    if (!Array.isArray(d.pienso)) { d.pienso = []; ch = true; }
-    if (!Array.isArray(d.gastos)) { d.gastos = []; ch = true; }
+    for (const k of LISTS) if (!Array.isArray(d[k])) { d[k] = []; ch = true; }
     const st = x => { if (!x.updatedAt) { x.updatedAt = EPOCH; ch = true; } };
     for (const p of d.pets || []) { st(p); (p.visitas || []).forEach(st); (p.pesos || []).forEach(st); (p.citas || []).forEach(st); }
-    d.pienso.forEach(st); d.gastos.forEach(st);
+    LISTS.forEach(k => d[k].forEach(st));
     if (d.schema !== 2) { d.schema = 2; ch = true; }
     return ch;
   }
   const mapOf = (arr, h) => new Map((arr || []).map(x => [x.id, h(x)]));
   function makeBase(d) {
-    const b = { pets: new Map(), pienso: mapOf(d.pienso, hPie), gastos: mapOf(d.gastos, hGas) };
+    const b = { pets: new Map(), pienso: mapOf(d.pienso, hPie), gastos: mapOf(d.gastos, hGas), marcas: mapOf(d.marcas, hMar), conceptos: mapOf(d.conceptos, hMar), decos: mapOf(d.decos, hDec) };
     for (const p of d.pets || []) b.pets.set(p.id, { h: hPet(p), name: norm(p.nombre), vis: mapOf(p.visitas, hVis), pes: mapOf(p.pesos, hPes), cit: mapOf(p.citas, hCit) });
     return b;
   }
@@ -64,10 +66,11 @@
     }
     for (const [id, b] of base.pets) if (!ids.has(id)) setT("pet", id, { name: b.name });
     flat(d.pienso, base.pienso, hPie, "pienso"); flat(d.gastos, base.gastos, hGas, "gasto");
+    flat(d.marcas, base.marcas || new Map(), hMar, "marca"); flat(d.conceptos, base.conceptos || new Map(), hMar, "concepto"); flat(d.decos, base.decos || new Map(), hDec, "deco");
     return makeBase(d);
   }
   const effTime = p => { let m = p.updatedAt || EPOCH; for (const x of (p.visitas || []).concat(p.pesos || [], p.citas || [])) if ((x.updatedAt || EPOCH) > m) m = x.updatedAt; return m; };
-  const canon = d => JSON.stringify([d.pets, d.pienso || [], d.gastos || [], (d.deleted || []).slice().sort((a, b) => (a.type + a.id).localeCompare(b.type + b.id))]);
+  const canon = d => JSON.stringify([d.pets, d.pienso || [], d.gastos || [], d.marcas || [], d.conceptos || [], d.decos || [], (d.deleted || []).slice().sort((a, b) => (a.type + a.id).localeCompare(b.type + b.id))]);
 
   function mergeData(local, remote) {
     const st = { petsAdded: 0, petsUpdated: 0, petsRemoved: 0, itemsAdded: 0, itemsUpdated: 0, itemsRemoved: 0 };
@@ -123,7 +126,8 @@
     merged.sort((a, b) => a.__o - b.__o); merged.forEach(x => { delete x.__o; });
 
     const data = { format: "huella-bibi-tris", version: 1, schema: 2, exportedAt: nowIso(), pets: merged,
-      pienso: mergeArr(local.pienso || [], remote.pienso || [], "pienso", hPie, null), gastos: mergeArr(local.gastos || [], remote.gastos || [], "gasto", hGas, null), deleted: [...tombs.values()] };
+      pienso: mergeArr(local.pienso || [], remote.pienso || [], "pienso", hPie, null), gastos: mergeArr(local.gastos || [], remote.gastos || [], "gasto", hGas, null),
+      marcas: mergeArr(local.marcas || [], remote.marcas || [], "marca", hMar, x => norm(x.n)), conceptos: mergeArr(local.conceptos || [], remote.conceptos || [], "concepto", hMar, x => norm(x.n)), decos: mergeArr(local.decos || [], remote.decos || [], "deco", hDec, null), deleted: [...tombs.values()] };
     return { data, stats: st };
   }
 
@@ -212,11 +216,11 @@
           try { rd = JSON.parse(remote.text); } catch (e) { throw mkErr("bad-remote", "El archivo de Dropbox no es un JSON válido. No se ha modificado."); }
           if (!rd || !Array.isArray(rd.pets)) throw mkErr("bad-remote", "El archivo de Dropbox no tiene la estructura de La Huella. No se ha modificado.");
           ensureStamps(rd); m = mergeData(local, rd);
-        } else m = { data: Object.assign({ format: "huella-bibi-tris", version: 1, schema: 2, exportedAt: nowIso() }, clone({ pets: local.pets, pienso: local.pienso || [], gastos: local.gastos || [], deleted: local.deleted || [] })), stats: {} };
+        } else m = { data: Object.assign({ format: "huella-bibi-tris", version: 1, schema: 2, exportedAt: nowIso() }, clone({ pets: local.pets, pienso: local.pienso || [], marcas: local.marcas || [], conceptos: local.conceptos || [], decos: local.decos || [], gastos: local.gastos || [], deleted: local.deleted || [] })), stats: {} };
         const changed = !rd || canon(m.data) !== canon(rd);
         if (changed) {
           const doneDay = rd && rd.lastRemoteBackup;   // copia en Dropbox (máx. 1 al día) de lo que había antes de cambiarlo
-          if (remote && doneDay !== today()) { try { await remotePut(remote.text, null, "/BACKUP/Huella/BK_Huella-de-Bibi-y-Tris_" + stampName() + ".json", true); m.data.lastRemoteBackup = today(); } catch (e) { if (e.code === "network") throw e; } }
+          if (remote && doneDay !== today()) { try { await remotePut(remote.text, null, "/BACKUP/Huella/BK_Huella-de-Bibi-y-Tris_" + stampName() + (host && host.device ? "_" + host.device : "") + ".json", true); m.data.lastRemoteBackup = today(); } catch (e) { if (e.code === "network") throw e; } }
           else if (doneDay) m.data.lastRemoteBackup = doneDay;
           try { state.rev = (await remotePut(JSON.stringify(m.data), remote ? remote.rev : null)).rev; } catch (e) { if (e.code === "conflict" && at < 3) continue; throw e; }
         } else if (remote) state.rev = remote.rev;
@@ -259,6 +263,10 @@
   }
   async function apiDownload(path) { return (await dbx("https://content.dropboxapi.com/2/files/download", { method: "POST", headers: { "Dropbox-API-Arg": argH({ path }) } })).blob(); }
 
+  async function apiThumb(path) {   // miniatura de una imagen de Dropbox (galería para elegir fotos)
+    return (await dbx("https://content.dropboxapi.com/2/files/get_thumbnail_v2", { method: "POST", headers: { "Dropbox-API-Arg": argH({ resource: { ".tag": "path", path }, format: { ".tag": "jpeg" }, size: { ".tag": "w256h256" }, mode: { ".tag": "bestfit" } }) } })).blob();
+  }
+
   async function init(h) {
     host = h;
     try { auth = await kvGet("auth") || null; state = (await kvGet("state")) || {}; status.connected = !!auth; status.lastSyncAt = state.lastSyncAt || null; status.lastResult = state.lastResult || null; } catch (e) { console.warn("Sync:", e); }
@@ -272,7 +280,7 @@
   }
   const api = { _setNow: f => { nowFn = f; }, EPOCH, ensureStamps, makeBase, stampChanges, mergeData, canon, init, syncNow, schedule, connectWithCode, disconnect,
     authUrl: async () => (await getPkce()).url, status: () => status, onStatus: f => listeners.push(f),
-    upload: apiUpload, list: apiList, download: apiDownload, reset: d => { base = makeBase(d); }, stamp: d => { base = stampChanges(d, base); } };
+    upload: apiUpload, list: apiList, download: apiDownload, thumb: apiThumb, reset: d => { base = makeBase(d); }, stamp: d => { base = stampChanges(d, base); } };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.Sync = api;
 })(typeof window !== "undefined" ? window : globalThis);
